@@ -3,9 +3,7 @@ import { z } from 'zod';
 
 const ConfigSchema = z.object({
   porta: z.int().min(1024).max(65535).default(3000),
-  debug: z
-    .enum(['true', 'false']).default('false')
-    .transform((value) => value === 'true'),
+  debug: z.boolean().default(false)
   });
 
 //type Config = z.infer<typeof ConfigSchema>; 
