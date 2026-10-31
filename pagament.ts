@@ -41,3 +41,25 @@ function descrever(p: PagamentState):string{
         }
     }
 }
+
+type Resultado<T> = 
+    |{'ok':true,'valor':T} 
+    |{'ok':false,'erro':string}
+
+type DataValida = Date & {readonly __marca : 'DataValida'};
+
+function criarDataValida(d:Date): Resultado<DataValida> {
+  if(Number.isNaN(d.getTime())){
+    return {'ok':false,'erro':'Formato de data inválido'}
+  }
+  const date = new Date(d.getTime())
+  return {'ok':true,'valor':date as DataValida}
+}
+
+const r = new Date();
+const d = criarDataValida(r); 
+
+if (d.ok) { 
+    r.setTime(NaN); 
+    console.log(d.valor)
+}
