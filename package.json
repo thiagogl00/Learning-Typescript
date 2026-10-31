@@ -2,7 +2,7 @@
   "name": "typescript",
   "type": "module",
   "scripts": {
-    "start": "node --env-file=.env pagament.ts"
+    "start": "node --env-file=.env async.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"
