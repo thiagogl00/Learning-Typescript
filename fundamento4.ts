@@ -1,3 +1,4 @@
+/*
 //Cancelamento
 
 async function buscar(url: string, signal: AbortSignal): Promise<unknown> {
@@ -18,7 +19,7 @@ try {
     throw e;
   }
 }
-
+*/
 //Limite de concorrência
 
 async function mapComLimite<T, R>(itens: readonly T[],limite: number,fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -42,6 +43,16 @@ async function mapComLimite<T, R>(itens: readonly T[],limite: number,fn: (item: 
   return resultados;
 }
 
+async function convert(i: number):Promise<String>{
+    return Promise.resolve(`Number: ${i}`)
+}
+
+const res = await mapComLimite<number,String>([1,2,3,4,5],2,convert)
+
+for (const element of res) {
+    console.log(element);
+}
+/*
 //Utilizando a biblioteca p-limit
 import pLimit from 'p-limit';
 
@@ -64,5 +75,5 @@ const tasks = urls.map(url => {
 // Executa tudo. Mesmo com 5 URLs, apenas 3 rodarão ao mesmo tempo
 const resultados = await Promise.all(tasks);
 console.log(resultados);
-
+*/
 export {};
