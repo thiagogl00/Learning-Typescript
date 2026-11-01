@@ -1,3 +1,6 @@
+/**
+ * Tipos estáticos ≠ garantias em runtime.
+ */
 
 import { z } from 'zod';
 

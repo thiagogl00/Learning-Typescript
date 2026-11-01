@@ -1,3 +1,7 @@
+/**
+ * Tornar estados inválidos irrepresentáveis.
+ */
+
 interface Pagament {
     status: 'pendente'|'pago'|'cancelado',
     pagoEm?: Date,

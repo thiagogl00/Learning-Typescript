@@ -1,3 +1,7 @@
+/**
+ * O modelo de execução assíncrono (event loop, concorrência, race conditions).
+ */
+
 /*
 //Cancelamento
 
