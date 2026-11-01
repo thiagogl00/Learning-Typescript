@@ -42,4 +42,27 @@ async function mapComLimite<T, R>(itens: readonly T[],limite: number,fn: (item: 
   return resultados;
 }
 
+//Utilizando a biblioteca p-limit
+import pLimit from 'p-limit';
+
+// Define o limite máximo de requisições simultâneas
+const limit = pLimit(3);
+
+const urls = [
+  'https://exemplo.com',
+  'https://exemplo.com',
+  'https://exemplo.com',
+  'https://exemplo.com',
+  'https://exemplo.com'
+];
+
+// O limit() envolve a função assíncrona
+const tasks = urls.map(url => {
+  return limit(() => fetch(url).then(res => res.json()));
+});
+
+// Executa tudo. Mesmo com 5 URLs, apenas 3 rodarão ao mesmo tempo
+const resultados = await Promise.all(tasks);
+console.log(resultados);
+
 export {};
