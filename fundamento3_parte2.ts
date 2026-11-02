@@ -2,7 +2,10 @@
  * O modelo de execução assíncrono (event loop, concorrência, race conditions).
  */
 
-/*
+//Uma Promise não tem mecanismo de cancelamento. Depois que a operação começa, a promessa só pode resolver ou rejeitar. 
+// Cancelar é cooperação: quem inicia a operação entrega um sinal, e quem executa precisa observá-lo e parar por conta própria.
+
+
 //Cancelamento
 
 async function buscar(url: string, signal: AbortSignal): Promise<unknown> {
@@ -23,8 +26,21 @@ try {
     throw e;
   }
 }
-*/
+
 //Limite de concorrência
+
+/**
+ * O problema: 
+ * const ids = [ 10.000 ids ];
+ * await Promise.all(ids.map((id) => buscarUsuario(id)));
+ * 
+ * map inicia todas as 10.000 chamadas imediatamente, antes de qualquer await do all valer.
+ * Você abriu 10.000 conexões simultâneas. Consequências possíveis: o servidor remoto devolve 429, 
+ * você esgota descritores de arquivo ou sockets, a memória sobe por manter tudo em voo. 
+ * O código é correto em lógica e falha sob volume.
+
+  Isso importa porque o Promise.all observa concorrência, mas não a controla: ela é decidida por quem inicia as operações.
+ */
 
 async function mapComLimite<T, R>(itens: readonly T[],limite: number,fn: (item: T) => Promise<R>): Promise<R[]> {
   const resultados: R[] = new Array(itens.length);

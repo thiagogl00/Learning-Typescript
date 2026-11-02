@@ -2,6 +2,8 @@
  * O modelo de execução assíncrono (event loop, concorrência, race conditions).
  */
 
+//JavaScript executa seu código em uma única thread: só uma coisa roda por vez. async/await não cria paralelismo, 
+// apenas permite que uma função suspenda e devolva o controle enquanto espera algo (rede, disco, timer).
 const listAuditoria = [];
 let saldo = 100;
 
