@@ -9,7 +9,8 @@
 
 // Result<T> torna explícitas as duas saídas possíveis: sucesso com valor ou
 // falha com um erro conhecido. A propriedade ok permite o narrowing.
-type Result<T> = { ok: true, saldoAtual: T } | { ok: false, erro: "valor_invalido" | "saldo_insuficiente" | "falha_no_registro" };
+type Erro = "valor_invalido" | "saldo_insuficiente" | "falha_no_registro";
+type Result<T> = { ok: true, saldoAtual: T } | { ok: false, erro: Erro };
 
 async function registrarLog(valor: number): Promise<void> {
     // Simula uma dependência assíncrona. Esta implementação sempre resolve;
