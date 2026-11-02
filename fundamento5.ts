@@ -1,4 +1,0 @@
-/**
- * Idempotência e falhas parciais.
- */
-
