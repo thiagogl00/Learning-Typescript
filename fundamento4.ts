@@ -5,6 +5,8 @@
 /**
  * Uma operação é idempotente quando executá-la uma vez ou várias vezes produz o mesmo estado final. 
  * Exemplos: “defina o saldo como 20” é idempotente. “Subtraia 80 do saldo” não é: repetir subtrai de novo.
+ * Idempotência não significa que a operação nunca produz efeitos observáveis;
+ * significa que as repetições não alteram o estado final além da primeira execução.
  * Isso importa porque, em rede, você nunca sabe se uma operação aconteceu. Se a resposta não chegou, 
  * a requisição pode ter falhado antes de chegar, ter sido processada e a resposta se perdido, ou ainda estar em andamento. 
  * Do seu lado, os três casos são idênticos: um timeout.
@@ -24,7 +26,9 @@ async function cobrarComRetry(clienteId: string, valor: number) {
     try {
       return await cobrar(clienteId, valor);
     } catch {
-      // tenta de novo
+      // Em produção, retry deve distinguir falhas
+      // recuperáveis de erros definitivos e usar espera progressiva com jitter.
+      // Sem idempotência, esta repetição pode criar uma cobrança duplicada.
     }
   }
   throw new Error("falhou após 3 tentativas");
@@ -32,7 +36,7 @@ async function cobrarComRetry(clienteId: string, valor: number) {
 */
 
 /**
- * Quando há dúvida, a única ação segura para garantir que algo aconteça é tentar de novo (retry). 
+ * Quando há dúvida, muitas vezes é necessário tentar de novo (retry) para aumentar a chance de que algo aconteça. 
  * Mas retry de uma operação não idempotente pode executá-la duas vezes. A solução padrão é a chave de idempotência: 
  * o cliente gera um identificador único por intenção (não por tentativa) e o envia junto. 
  * O servidor guarda as chaves já processadas e, ao ver uma repetida, devolve o resultado anterior em vez de executar de novo.
@@ -44,6 +48,7 @@ Mesma chave, mesmo corpo: o cliente deve receber o resultado da primeira execuç
 A chave representa uma intenção. Corpo diferente com a mesma chave é, quase certamente, um bug do cliente (reuso indevido da chave, ou 
 chave gerada fora do lugar certo). O comportamento correto é rejeitar com erro explícito, para o bug aparecer em vez de ser mascarado. 
 Para detectar isso, o servidor guarda junto da chave um hash do corpo (ou o próprio corpo) e compara a cada repetição.
+A chave representa uma intenção do cliente, não uma tentativa individual.
  * 
  * Duas requisições idênticas, com a mesma chave K, chegam ao servidor no mesmo instante, antes de qualquer uma ser registrada. 
  * Que bug clássico deste curso reaparece? Como o servidor deveria registrar a chave para evitá-lo?
@@ -56,7 +61,8 @@ que só um vence:
  . Uma restrição de unicidade no banco (UNIQUE na coluna da chave): a segunda inserção falha, e o servidor sabe que perdeu a corrida.
  . Um comando atômico “criar se não existir” (por exemplo, SET ... NX no Redis).
 
-Quem perde a corrida responde conforme o estado da chave: “em andamento” (ex.: 409) ou, se já terminou, o resultado guardado. 
+Quem perde a corrida responde conforme o estado da chave: “em andamento” ou, se já terminou, o resultado guardado. O código HTTP
+depende do contrato da API; 409 é uma possibilidade, não uma regra universal.
 
 E isso importa porque a idempotência só vale se a verificação da chave e o seu registro forem atômicos; do contrário, o mesmo defeito que
 a chave deveria evitar (execução duplicada) reaparece na janela entre os dois passos.
@@ -98,7 +104,11 @@ a chave não consta como concluída e a repetição executa normalmente. A janel
 intermediário visível.
 
 Isso só funciona quando o efeito e a chave vivem no mesmo banco. Se o efeito é externo (uma chamada a um provedor de pagamento), 
-a transação não o alcança, e voltamos a precisar de lease e de idempotência no próprio provedor (propagando a chave adiante).
+ a transação não o alcança. Nesse caso, é preciso usar idempotência no próprio provedor (propagando a chave), além de retry, lease
+ e, quando necessário, reconciliação para lidar com respostas perdidas.
+
+Lease é uma política de recuperação, não uma garantia absoluta: se for curto e a operação original ainda estiver viva, uma nova
+requisição pode começar o mesmo efeito antes que a primeira termine.
 
 Isso importa porque a idempotência exige que o servidor decida o que fazer com estado intermediário, e a forma mais segura de decidir 
 é não permitir que ele exista (transação) ou dar a ele um prazo de validade (lease).
@@ -106,20 +116,33 @@ Isso importa porque a idempotência exige que o servidor decida o que fazer com 
 
 // Versão com chave de idempotência
 async function cobrar(clienteId: string, valor: number, chave: string) {
-  await fetch("https://api.exemplo.com/cobrancas", {
+  // O servidor deve usar esta chave para procurar ou reservar a intenção antes
+  // de executar a cobrança. Esta função apenas transporta a chave ao provedor.
+  const resposta = await fetch("https://api.exemplo.com/cobrancas", {
     method: "POST",
-    headers: { "Idempotency-Key": chave },
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": chave,
+    },
     body: JSON.stringify({ clienteId, valor }),
   });
+
+  // fetch não rejeita apenas porque recebeu 4xx/5xx; sem esta verificação,
+  // o retry poderia nem perceber uma falha HTTP.
+  if (!resposta.ok) {
+    throw new Error(`HTTP ${resposta.status}`);
+  }
 }
 
 async function cobrarComRetry(clienteId: string, valor: number) {
-  const chave = crypto.randomUUID(); // UMA vez, fora do laço
+  // Uma chave por intenção: todas as tentativas representam a mesma cobrança.
+  const chave = crypto.randomUUID();
   for (let tentativa = 1; tentativa <= 3; tentativa++) {
     try {
       return await cobrar(clienteId, valor, chave);
     } catch {
-      // tenta de novo, com a MESMA chave
+      // Tenta de novo com a MESMA chave. O servidor deve devolver o resultado
+      // já registrado em vez de executar a cobrança novamente.
     }
   }
   throw new Error("falhou após 3 tentativas");
@@ -129,12 +152,12 @@ async function cobrarComRetry(clienteId: string, valor: number) {
 
 let estoque = 10;
 
-//depende de um estado anterior
+// Depende do estado anterior: repetir subtrai novamente e, portanto, não é idempotente.
 function reservar(qtd: number): void {
   estoque -= qtd;
 }
 
-//depende do argumento
+// Depende apenas do argumento: repetir define o mesmo valor e é idempotente.
 function definirEstoque(valor: number): void {
   estoque = valor;
 }
