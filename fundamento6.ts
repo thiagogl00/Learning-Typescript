@@ -25,26 +25,26 @@ const deepEqual = (a: unknown, b: unknown): boolean =>
   JSON.stringify(a) === JSON.stringify(b);
 expect(soma(2, 3)).toBe(5);
 
-// Ele prova que aquela entrada funciona. Todo o resto do espaço de entradas fica sem verificação, e a escolha dos exemplos depende de quem escreve o teste imaginar os casos perigosos. Os bugs que chegam à produção são justamente os que ninguém imaginou: NaN, zero, lista vazia, valor enorme, ordem estranha de operações.
+// Esse teste demonstra apenas o comportamento para aquela entrada. Todo o resto do espaço de entradas fica sem verificação, e a escolha dos exemplos depende dos casos perigosos considerados na elaboração do teste. Bugs que chegam à produção podem estar em entradas não consideradas, como NaN, zero, lista vazia, valor enorme ou ordem estranha de operações.
 
-// O teste por propriedades inverte a lógica: você descreve uma afirmação que deve valer para todas as entradas de um domínio, e uma máquina procura um contraexemplo.
+// O teste por propriedades inverte a lógica: a propriedade descreve uma afirmação que deve valer para todas as entradas de um domínio, e a ferramenta procura um contraexemplo.
 
 // 2. Os quatro componentes
 
 // 1. Gerador (arbitrary): produz entradas aleatórias de um tipo. Pode ser simples (fc.integer()) ou composto (fc.array(fc.string())).
 // 2. Propriedade: função da entrada que devolve verdadeiro ou falso (ou lança exceção).
 // 3. Executor: roda a propriedade centenas de vezes com entradas diferentes.
-// 4. Shrinking: quando acha uma entrada que falha, a biblioteca a simplifica passo a passo (lista menor, número mais próximo de zero) até o menor exemplo que ainda falha. Sem isso, você receberia uma lista de 80 elementos incompreensível; com isso, recebe NaN.
+// 4. Shrinking: quando encontra uma entrada que falha, a biblioteca a simplifica passo a passo (lista menor, número mais próximo de zero) até o menor exemplo que ainda falha. Sem esse processo, uma lista de 80 elementos seria incompreensível; com ele, o resultado pode ser reduzido a NaN.
 
 // Além disso, a falha vem com uma seed, que reproduz exatamente a mesma sequência de entradas. Sem registrar a seed, uma falha encontrada uma vez pode nunca mais aparecer.
 
-// Em TypeScript a biblioteca mais usada é a fast-check. A API muda entre versões, então confira nomes e opções na documentação.
+// Em TypeScript, a biblioteca mais usada é a fast-check. A API muda entre versões; nomes e opções devem ser conferidos na documentação da versão utilizada.
 
 // 3. Como pensar: de onde vêm as propriedades
 
 // A dificuldade real do método não é a ferramenta, é achar boas propriedades. Há alguns padrões que cobrem a maior parte dos casos.
 
-// a) Invariantes. Algo que vale depois de qualquer operação. É o que você já escreveu no número 5: saldo >= 0 e saldo finito.
+// a) Invariantes. Algo que vale depois de qualquer operação. No exemplo de sequências, a invariante é saldo >= 0 e saldo finito.
 
 // b) Round-trip (ida e volta). Duas operações inversas devolvem o original:
 
@@ -61,11 +61,11 @@ fc.assert(
 
 // normalizar(normalizar(x)) === normalizar(x)
 
-// d) Comparação com um modelo simples (oráculo). Você tem uma implementação rápida e complexa e uma ingênua e obviamente correta. A propriedade é: as duas dão o mesmo resultado. Exemplo: um mapComLimite comparado com Promise.all(xs.map(f)) quanto ao resultado, já que a diferença está só no tempo e na concorrência.
+// d) Comparação com um modelo simples (oráculo). Uma implementação rápida e complexa é comparada com outra ingênua e obviamente correta. A propriedade exige o mesmo resultado nas duas. Exemplo: mapComLimite pode ser comparado com Promise.all(xs.map(f)) quanto ao resultado, já que a diferença está no tempo e na concorrência.
 
 // e) Relações entre entradas e saídas. Se a ordem da entrada não importa, ordenar(embaralhar(xs)) deve igualar ordenar(xs). Se aumentar o depósito nunca diminui o saldo, isso é uma relação (monotonicidade).
 
-// f) Propriedades de "não quebra". A mais fraca e muitas vezes a mais útil para começar: para qualquer entrada, a função não lança exceção inesperada e devolve um valor do tipo certo. Foi o que achou o NaN.
+// f) Propriedades de "não quebra". A mais fraca e muitas vezes a mais útil para começar: para qualquer entrada, a função não lança exceção inesperada e devolve um valor do tipo certo. Essa propriedade revelou o caso de NaN.
 
 // 4. O exemplo central: encontrando o NaN
 
@@ -81,7 +81,7 @@ fc.assert(
 
 // Rastreio do que acontece:
 
-// 1. O gerador inclui valores especiais de ponto flutuante, como NaN e Infinity (confirme na documentação da sua versão quais valores fc.double gera por padrão).
+// 1. O gerador inclui valores especiais de ponto flutuante, como NaN e Infinity. Os valores gerados por fc.double dependem da versão e das opções utilizadas.
 // 2. Com v = NaN, NaN < 0 é false, a validação passa, e saldo += NaN torna o saldo NaN.
 // 3. A propriedade devolve false.
 // 4. O shrinking reduz o contraexemplo a NaN e a biblioteca imprime a seed.
@@ -113,9 +113,9 @@ fc.assert(
 // Dois detalhes importantes:
 
 // A invariante é checada dentro do laço, depois de cada comando. Se ela fosse checada só no final, um estado inválido intermediário que depois "se curasse" passaria despercebido.
-// O shrinking funciona também sobre a lista: uma sequência de 40 comandos que falha é reduzida à menor sequência que reproduz o erro, às vezes dois comandos. Isso transforma o diagnóstico: você vê a história mínima do bug.
+// O shrinking funciona também sobre a lista: uma sequência de 40 comandos que falha é reduzida à menor sequência que reproduz o erro, às vezes dois comandos. Isso transforma o diagnóstico: a história mínima do bug fica explícita.
 
-// Esse estilo, em que o teste gera sequências de operações e compara com um modelo, é chamado de teste de modelo (model-based testing). A fast-check tem suporte dedicado (comandos e modelos); consulte a documentação para a API atual.
+// Esse estilo, em que o teste gera sequências de operações e compara com um modelo, é chamado de teste de modelo (model-based testing). A fast-check tem suporte dedicado a comandos e modelos; a API atual deve ser consultada na documentação da versão utilizada.
 
 // 6. Um modelo para comparar
 
@@ -137,14 +137,3 @@ fc.assert(
     return true;
   })
 );
-
-// Repare no que isso verifica: se a operação foi aceita, o saldo mudou exatamente pelo valor; se foi recusada, o saldo não mudou. É a pós-condição que vimos no número 5, incluindo a metade que costuma ser esquecida (falha não altera o estado). Observação honesta: com números de ponto flutuante, a soma pode ter erros de arredondamento que o modelo e o código reproduziriam igual, então para dinheiro real o teste mais forte usaria inteiros em centavos.
-
-
-// 7. Conexões
-
-// - Número 1 (fronteiras): um gerador de entradas arbitrárias é um bom adversário de um schema de validação. Teste: "para qualquer valor gerado, o safeParse ou aceita ou devolve erro, e nunca lança exceção".
-// - Número 2 (estados inválidos): quanto mais estados você torna irrepresentáveis no tipo, menos precisa testar. Tipos eliminam classes de entrada inválida; propriedades verificam o que o tipo não alcança (valores).
-// - Número 3 (assíncrono): o limite do método.
-// - Número 4 (idempotência): vira propriedade (f(f(x)) = f(x)).
-// - Número 5 (invariantes): a invariante é a propriedade. Declarar a invariante antes de implementar, o hábito que mais lhe falta, é o que torna esse método natural.
