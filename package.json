@@ -5,6 +5,7 @@
     "start": "node --env-file=.env fundamento4.ts"
   },
   "dependencies": {
+    "fast-check": "^4.10.2",
     "p-limit": "^7.3.3",
     "zod": "^4.6.7"
   },

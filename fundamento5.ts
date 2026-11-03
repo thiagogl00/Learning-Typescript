@@ -102,4 +102,4 @@ if (result.ok) {
     }
 }
 
-export {};
+export { Conta };
